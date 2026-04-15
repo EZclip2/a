@@ -1,0 +1,37 @@
+name: Process Key
+
+on:
+  workflow_call:
+    inputs:
+      key:
+        type: string
+        required: true
+      uuid:
+        type: string
+        required: true
+    secrets:
+      KEYS_TOKEN:
+        required: true
+      RESULTS_TOKEN:
+        required: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: Verify key
+        env:
+          INPUT_KEY: ${{ inputs.key }}
+          INPUT_UUID: ${{ inputs.uuid }}
+          KEYS_TOKEN: ${{ secrets.KEYS_TOKEN }}
+          RESULTS_TOKEN: ${{ secrets.RESULTS_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python process_key.py
