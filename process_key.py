@@ -8,10 +8,6 @@ import random
 import requests
 from datetime import datetime
 
-# ════════════════════════════════════════════════════════════════
-#  КОНФИГУРАЦИЯ (всё из переменных окружения)
-# ════════════════════════════════════════════════════════════════
-
 RESULTS_REPO = os.environ["RESULTS_REPO"]
 KEYS_REPO = os.environ["KEYS_REPO"]
 KEYS_TOKEN = os.environ["KEYS_TOKEN"]
@@ -21,20 +17,20 @@ MIN_CHECKSUM = 12544
 MAX_CHECKSUM = 16384
 
 CODING_MAP = {
-    "а": "X7k", "б": "9pL", "в": "qW3", "г": "MtR", "д": "5Bf",
-    "е": "aBc", "ё": "7jY", "ж": "ZxN", "з": "4wQ", "и": "gH2",
-    "й": "UvP", "к": "Qa9", "л": "0sT", "м": "pLm", "н": "1hG",
-    "о": "QwE", "п": "2yU", "р": "As8", "с": "3tK", "т": "rTy",
-    "у": "Zc6", "ф": "BnM", "х": "vB6", "ц": "8nX", "ч": "PoI",
-    "ш": "9Kj", "щ": "wEr", "ъ": "Fg2", "ы": "LkJ", "ь": "8rT",
-    "э": "ZaQ", "ю": "7dF", "я": "Ws5",
-    "А": "xYz", "Б": "9L3", "В": "QRt", "Г": "m8N", "Д": "6bV",
-    "Е": "AB9", "Ё": "3Jk", "Ж": "zXc", "З": "6pO", "И": "gHi",
-    "Й": "uV4", "К": "qAw", "Л": "8Nm", "М": "PlK", "Н": "7kJ",
-    "О": "qWe", "П": "8T7", "Р": "aSd", "С": "9Mf", "Т": "RtY",
-    "У": "zC8", "Ф": "bCv", "Х": "VbN", "Ц": "5N2", "Ч": "pOi",
-    "Ш": "3Lk", "Щ": "We6", "Ъ": "FgH", "Ы": "lK9", "Ь": "2rT",
-    "Э": "zAq", "Ю": "1Dw", "Я": "WsX",
+    "\u0430": "X7k", "\u0431": "9pL", "\u0432": "qW3", "\u0433": "MtR", "\u0434": "5Bf",
+    "\u0435": "aBc", "\u0451": "7jY", "\u0436": "ZxN", "\u0437": "4wQ", "\u0438": "gH2",
+    "\u0439": "UvP", "\u043a": "Qa9", "\u043b": "0sT", "\u043c": "pLm", "\u043d": "1hG",
+    "\u043e": "QwE", "\u043f": "2yU", "\u0440": "As8", "\u0441": "3tK", "\u0442": "rTy",
+    "\u0443": "Zc6", "\u0444": "BnM", "\u0445": "vB6", "\u0446": "8nX", "\u0447": "PoI",
+    "\u0448": "9Kj", "\u0449": "wEr", "\u044a": "Fg2", "\u044b": "LkJ", "\u044c": "8rT",
+    "\u044d": "ZaQ", "\u044e": "7dF", "\u044f": "Ws5",
+    "\u0410": "xYz", "\u0411": "9L3", "\u0412": "QRt", "\u0413": "m8N", "\u0414": "6bV",
+    "\u0415": "AB9", "\u0401": "3Jk", "\u0416": "zXc", "\u0417": "6pO", "\u0418": "gHi",
+    "\u0419": "uV4", "\u041a": "qAw", "\u041b": "8Nm", "\u041c": "PlK", "\u041d": "7kJ",
+    "\u041e": "qWe", "\u041f": "8T7", "\u0420": "aSd", "\u0421": "9Mf", "\u0422": "RtY",
+    "\u0423": "zC8", "\u0424": "bCv", "\u0425": "VbN", "\u0426": "5N2", "\u0427": "pOi",
+    "\u0428": "3Lk", "\u0429": "We6", "\u042a": "FgH", "\u042b": "lK9", "\u042c": "2rT",
+    "\u042d": "zAq", "\u042e": "1Dw", "\u042f": "WsX",
     "a": "P7a", "b": "5kB", "c": "Df2", "d": "Stv", "e": "8Mc",
     "f": "GhJ", "g": "hJ3", "h": "2wQ", "i": "KlM", "j": "Op6",
     "k": "1zX", "l": "6Xc", "m": "Bn9", "n": "2qW", "o": "nF7",
@@ -74,13 +70,8 @@ NUMBER_MAP2 = {
 DECODE_MAP = {v: k for k, v in CODING_MAP.items()}
 NUMBER_DECODE_MAP = {v: k for k, v in NUMBER_MAP.items()}
 NUMBER_DECODE_MAP2 = {v: k for k, v in NUMBER_MAP2.items()}
+SEPARATOR = CODING_MAP[' ']
 
-SEPARATOR = CODING_MAP[' ']  # "spC"
-
-
-# ════════════════════════════════════════════════════════════════
-#  КОДИРОВАНИЕ / ДЕКОДИРОВАНИЕ
-# ════════════════════════════════════════════════════════════════
 
 def encode_text(text):
     encoded = ""
@@ -145,14 +136,9 @@ def decode_number_user(encoded_str):
         return None
 
 
-# ════════════════════════════════════════════════════════════════
-#  ЗАПИСЬ РЕЗУЛЬТАТА
-# ════════════════════════════════════════════════════════════════
-
 def write_result(uuid, status, days, token):
     if not uuid or not token:
         return
-
     content = f"{uuid};{status};{days}"
     encoded = base64.b64encode(content.encode()).decode()
     filename = f"{uuid}.txt"
@@ -161,29 +147,19 @@ def write_result(uuid, status, days, token):
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github.v3+json",
     }
-
     sha = None
     r = requests.get(api_url, headers=headers, timeout=10)
     if r.ok:
         sha = r.json().get("sha")
-
-    payload = {
-        "message": f"Result {filename}",
-        "content": encoded,
-    }
+    payload = {"message": f"Result {filename}", "content": encoded}
     if sha:
         payload["sha"] = sha
-
     requests.put(api_url, headers=headers, json=payload, timeout=10).raise_for_status()
 
 
 def fail(uuid, token):
     write_result(uuid, 0, 0, token)
 
-
-# ════════════════════════════════════════════════════════════════
-#  ОСНОВНАЯ ЛОГИКА ПРОВЕРКИ
-# ════════════════════════════════════════════════════════════════
 
 def main():
     full_key = os.environ.get("INPUT_KEY", "").strip()
@@ -194,7 +170,6 @@ def main():
             fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # --- Парсинг ключа: password:encoded_number ---
     if ":" not in full_key:
         fail(device_uuid, RESULTS_TOKEN)
         return
@@ -207,18 +182,15 @@ def main():
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # Декодируем номер ключа (NUMBER_MAP2)
     key_number = decode_number_user(encoded_num_user)
     if not key_number:
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # --- Проверка длины пароля ---
     if not (64 <= len(password) <= 72):
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # --- Проверка checksum ---
     numbers_in_password = re.findall(r'\d+', password)
     checksum = sum(int(n) for n in numbers_in_password)
 
@@ -226,13 +198,11 @@ def main():
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # --- Проверка кодируемости пароля ---
     encoded_password = encode_text(password)
     if not encoded_password:
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # --- Поиск файла ключа в репозитории ---
     headers = {
         "Authorization": f"token {KEYS_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
@@ -247,7 +217,6 @@ def main():
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # Ищем файл по номеру (NUMBER_MAP)
     encoded_num = encode_number(key_number)
     file_info = None
 
@@ -264,12 +233,10 @@ def main():
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # Заморожен?
     if file_info["name"].startswith("0."):
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # --- Скачивание и SHA1 ---
     try:
         r = requests.get(file_info["download_url"], timeout=10)
         content = r.content
@@ -281,9 +248,8 @@ def main():
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # --- Парсинг содержимого ---
     content_str = content.decode("utf-8").strip()
-    content_str = content_str[:-1]  # убираем tail_char
+    content_str = content_str[:-1]
 
     parts = content_str.split(SEPARATOR)
 
@@ -295,12 +261,10 @@ def main():
     stored_encoded_date = parts[1]
     stored_encoded_uuid = parts[2] if len(parts) >= 3 else None
 
-    # --- Проверка пароля ---
     if stored_encoded_password != encoded_password:
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # --- Checksum из имени файла ---
     filename_parts = file_info["name"].replace(".txt", "").split(".")
     if len(filename_parts) >= 3:
         stored_checksum = decode_number(filename_parts[2])
@@ -308,7 +272,6 @@ def main():
             fail(device_uuid, RESULTS_TOKEN)
             return
 
-    # --- Дата истечения ---
     expiry_str = decode_text(stored_encoded_date)
 
     try:
@@ -322,7 +285,6 @@ def main():
         fail(device_uuid, RESULTS_TOKEN)
         return
 
-    # --- Привязка устройства ---
     stored_uuid = decode_text(stored_encoded_uuid) if stored_encoded_uuid else None
 
     if stored_uuid:
@@ -349,7 +311,6 @@ def main():
                 fail(device_uuid, RESULTS_TOKEN)
                 return
 
-    # --- Успех ---
     days_left = (expiry_date.date() - now.date()).days
     write_result(device_uuid, 1, days_left, RESULTS_TOKEN)
 
