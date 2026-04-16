@@ -137,7 +137,9 @@ def decode_number_user(encoded_str):
 
 
 def write_result(uuid, status, days, token):
+    print(f"DEBUG: write_result uuid={uuid}, status={status}, days={days}")
     if not uuid or not token:
+        print("DEBUG: write_result - empty uuid or token!")
         return
     content = f"{uuid};{status};{days}"
     encoded = base64.b64encode(content.encode()).decode()
@@ -149,59 +151,76 @@ def write_result(uuid, status, days, token):
     }
     sha = None
     r = requests.get(api_url, headers=headers, timeout=10)
+    print(f"DEBUG: write_result GET existing: status={r.status_code}")
     if r.ok:
         sha = r.json().get("sha")
     payload = {"message": f"Result {filename}", "content": encoded}
     if sha:
         payload["sha"] = sha
-    requests.put(api_url, headers=headers, json=payload, timeout=10).raise_for_status()
+    r = requests.put(api_url, headers=headers, json=payload, timeout=10)
+    print(f"DEBUG: write_result PUT: status={r.status_code}, body={r.text[:200]}")
+    r.raise_for_status()
 
 
 def fail(uuid, token):
+    print(f"DEBUG: FAIL called for uuid={uuid}")
     write_result(uuid, 0, 0, token)
 
 
 def main():
     full_key = os.environ.get("INPUT_KEY", "").strip()
     device_uuid = os.environ.get("INPUT_UUID", "").strip()
+    print(f"DEBUG: key={full_key[:20]}..., uuid={device_uuid}")
 
     if not full_key or not device_uuid:
+        print("DEBUG: FAIL - empty key or uuid")
         if device_uuid:
             fail(device_uuid, RESULTS_TOKEN)
         return
 
     if ":" not in full_key:
+        print("DEBUG: FAIL - no colon in key")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     colon_idx = full_key.rfind(":")
     password = full_key[:colon_idx]
     encoded_num_user = full_key[colon_idx + 1:]
+    print(f"DEBUG: password len={len(password)}, encoded_num_user len={len(encoded_num_user)}")
 
     if not password or not encoded_num_user:
+        print("DEBUG: FAIL - empty password or number")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     key_number = decode_number_user(encoded_num_user)
+    print(f"DEBUG: key_number={key_number}")
     if not key_number:
+        print("DEBUG: FAIL - can't decode key number")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     if not (64 <= len(password) <= 72):
+        print(f"DEBUG: FAIL - password length {len(password)} not in 64-72")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     numbers_in_password = re.findall(r'\d+', password)
     checksum = sum(int(n) for n in numbers_in_password)
+    print(f"DEBUG: checksum={checksum}")
 
     if not (MIN_CHECKSUM <= checksum <= MAX_CHECKSUM):
+        print(f"DEBUG: FAIL - checksum {checksum} not in {MIN_CHECKSUM}-{MAX_CHECKSUM}")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     encoded_password = encode_text(password)
     if not encoded_password:
+        print("DEBUG: FAIL - can't encode password")
         fail(device_uuid, RESULTS_TOKEN)
         return
+
+    print(f"DEBUG: encoded_password len={len(encoded_password)}")
 
     headers = {
         "Authorization": f"token {KEYS_TOKEN}",
@@ -209,15 +228,20 @@ def main():
     }
     api_base = f"https://api.github.com/repos/{KEYS_REPO}/contents"
 
+    print(f"DEBUG: fetching files from {KEYS_REPO}...")
     try:
         r = requests.get(f"{api_base}/", headers=headers, timeout=15)
+        print(f"DEBUG: fetch files status={r.status_code}")
         r.raise_for_status()
         files = r.json()
-    except Exception:
+        print(f"DEBUG: found {len(files)} files")
+    except Exception as e:
+        print(f"DEBUG: FAIL - fetch files error: {e}")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     encoded_num = encode_number(key_number)
+    print(f"DEBUG: looking for file starting with {encoded_num}")
     file_info = None
 
     for f in files:
@@ -230,30 +254,43 @@ def main():
             break
 
     if not file_info:
+        print("DEBUG: FAIL - key file not found")
         fail(device_uuid, RESULTS_TOKEN)
         return
+
+    print(f"DEBUG: found file: {file_info['name']}")
 
     if file_info["name"].startswith("0."):
+        print("DEBUG: FAIL - key is disabled (starts with 0.)")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
+    print("DEBUG: downloading file content...")
     try:
         r = requests.get(file_info["download_url"], timeout=10)
+        print(f"DEBUG: download status={r.status_code}")
         content = r.content
         blob = f"blob {len(content)}\0".encode() + content
-        if hashlib.sha1(blob).hexdigest() != file_info.get("sha", ""):
+        sha_check = hashlib.sha1(blob).hexdigest()
+        print(f"DEBUG: sha check: computed={sha_check}, expected={file_info.get('sha', '')}")
+        if sha_check != file_info.get("sha", ""):
+            print("DEBUG: FAIL - SHA mismatch")
             fail(device_uuid, RESULTS_TOKEN)
             return
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: FAIL - download error: {e}")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     content_str = content.decode("utf-8").strip()
     content_str = content_str[:-1]
+    print(f"DEBUG: content length={len(content_str)}")
 
     parts = content_str.split(SEPARATOR)
+    print(f"DEBUG: parts count={len(parts)}")
 
     if len(parts) < 2:
+        print("DEBUG: FAIL - less than 2 parts")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
@@ -261,43 +298,56 @@ def main():
     stored_encoded_date = parts[1]
     stored_encoded_uuid = parts[2] if len(parts) >= 3 else None
 
+    print(f"DEBUG: password match: {stored_encoded_password == encoded_password}")
     if stored_encoded_password != encoded_password:
+        print("DEBUG: FAIL - password mismatch")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     filename_parts = file_info["name"].replace(".txt", "").split(".")
+    print(f"DEBUG: filename_parts={filename_parts}")
     if len(filename_parts) >= 3:
         stored_checksum = decode_number(filename_parts[2])
+        print(f"DEBUG: stored_checksum={stored_checksum}, computed={checksum}")
         if stored_checksum is not None and stored_checksum != checksum:
+            print("DEBUG: FAIL - checksum mismatch")
             fail(device_uuid, RESULTS_TOKEN)
             return
 
     expiry_str = decode_text(stored_encoded_date)
+    print(f"DEBUG: expiry_str={expiry_str}")
 
     try:
         expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
     except ValueError:
+        print(f"DEBUG: FAIL - can't parse date: {expiry_str}")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     now = datetime.utcnow()
+    print(f"DEBUG: now={now.date()}, expiry={expiry_date.date()}")
     if now.date() > expiry_date.date():
+        print("DEBUG: FAIL - key expired")
         fail(device_uuid, RESULTS_TOKEN)
         return
 
     stored_uuid = decode_text(stored_encoded_uuid) if stored_encoded_uuid else None
+    print(f"DEBUG: stored_uuid={stored_uuid}")
 
     if stored_uuid:
         if stored_uuid != device_uuid:
+            print(f"DEBUG: FAIL - UUID mismatch: stored={stored_uuid}, device={device_uuid}")
             fail(device_uuid, RESULTS_TOKEN)
             return
+        print("DEBUG: UUID match OK")
     else:
+        print("DEBUG: No stored UUID, binding device...")
         encoded_uuid = encode_text(device_uuid)
         if encoded_uuid:
             tail_char = random.choice(string.ascii_letters + string.digits)
             new_content = content_str + SEPARATOR + encoded_uuid + tail_char
             try:
-                requests.put(
+                r = requests.put(
                     f"{api_base}/{file_info['name']}",
                     headers=headers,
                     timeout=10,
@@ -306,12 +356,17 @@ def main():
                         "content": base64.b64encode(new_content.encode()).decode(),
                         "sha": file_info["sha"],
                     },
-                ).raise_for_status()
-            except Exception:
+                )
+                print(f"DEBUG: bind PUT status={r.status_code}")
+                r.raise_for_status()
+                print("DEBUG: device bound successfully")
+            except Exception as e:
+                print(f"DEBUG: FAIL - bind error: {e}")
                 fail(device_uuid, RESULTS_TOKEN)
                 return
 
     days_left = (expiry_date.date() - now.date()).days
+    print(f"DEBUG: SUCCESS! days_left={days_left}")
     write_result(device_uuid, 1, days_left, RESULTS_TOKEN)
 
 
