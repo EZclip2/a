@@ -20,6 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          repository: EZclip2/a
+          token: ${{ secrets.KEYS_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:
