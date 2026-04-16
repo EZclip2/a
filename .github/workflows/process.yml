@@ -1,40 +1,29 @@
 name: Process Key
-
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       key:
-        type: string
+        description: "License key"
         required: true
       uuid:
-        type: string
-        required: true
-    secrets:
-      KEYS_TOKEN:
-        required: true
-      RESULTS_TOKEN:
+        description: "Device UUID"
         required: true
 
 jobs:
-  check:
+  process:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          repository: EZclip2/a
-          token: ${{ secrets.KEYS_TOKEN }}
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - run: pip install requests
-
-      - name: Verify key
+      - name: Run verification
         env:
           INPUT_KEY: ${{ inputs.key }}
           INPUT_UUID: ${{ inputs.uuid }}
+          KEYS_REPO: ${{ github.repository }}
           KEYS_TOKEN: ${{ secrets.KEYS_TOKEN }}
+          RESULTS_REPO: ${{ secrets.RESULTS_REPO }}
           RESULTS_TOKEN: ${{ secrets.RESULTS_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
         run: python process_key.py
