@@ -12,7 +12,7 @@ from datetime import datetime
 #  КОНФИГУРАЦИЯ
 # ════════════════════════════════════════════════════════════════
 
-RESULTS_REPO = "EZclip2/Results_repository"
+RESULTS_REPO = "EZclip2/c"
 
 MIN_CHECKSUM = 12544
 MAX_CHECKSUM = 16384
@@ -185,7 +185,7 @@ def fail(uuid, token):
 def main():
     full_key = os.environ.get("INPUT_KEY", "").strip()
     device_uuid = os.environ.get("INPUT_UUID", "").strip()
-    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    repo = "EZclip2/a"
     keys_token = os.environ.get("KEYS_TOKEN", "")
     results_token = os.environ.get("RESULTS_TOKEN", "")
 
