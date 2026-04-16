@@ -1,4 +1,4 @@
-﻿import os
+import os
 import re
 import sys
 import base64
@@ -9,10 +9,13 @@ import requests
 from datetime import datetime
 
 # ════════════════════════════════════════════════════════════════
-#  КОНФИГУРАЦИЯ
+#  КОНФИГУРАЦИЯ (всё из переменных окружения)
 # ════════════════════════════════════════════════════════════════
 
-RESULTS_REPO = "EZclip2/c"
+RESULTS_REPO = os.environ["RESULTS_REPO"]
+KEYS_REPO = os.environ["KEYS_REPO"]
+KEYS_TOKEN = os.environ["KEYS_TOKEN"]
+RESULTS_TOKEN = os.environ["RESULTS_TOKEN"]
 
 MIN_CHECKSUM = 12544
 MAX_CHECKSUM = 16384
@@ -143,7 +146,7 @@ def decode_number_user(encoded_str):
 
 
 # ════════════════════════════════════════════════════════════════
-#  ЗАПИСЬ РЕЗУЛЬТАТА В Results_repository
+#  ЗАПИСЬ РЕЗУЛЬТАТА
 # ════════════════════════════════════════════════════════════════
 
 def write_result(uuid, status, days, token):
@@ -185,18 +188,15 @@ def fail(uuid, token):
 def main():
     full_key = os.environ.get("INPUT_KEY", "").strip()
     device_uuid = os.environ.get("INPUT_UUID", "").strip()
-    repo = "EZclip2/a"
-    keys_token = os.environ.get("KEYS_TOKEN", "")
-    results_token = os.environ.get("RESULTS_TOKEN", "")
 
     if not full_key or not device_uuid:
         if device_uuid:
-            fail(device_uuid, results_token)
+            fail(device_uuid, RESULTS_TOKEN)
         return
 
     # --- Парсинг ключа: password:encoded_number ---
     if ":" not in full_key:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     colon_idx = full_key.rfind(":")
@@ -204,18 +204,18 @@ def main():
     encoded_num_user = full_key[colon_idx + 1:]
 
     if not password or not encoded_num_user:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # Декодируем номер ключа (NUMBER_MAP2)
     key_number = decode_number_user(encoded_num_user)
     if not key_number:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # --- Проверка длины пароля ---
     if not (64 <= len(password) <= 72):
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # --- Проверка checksum ---
@@ -223,28 +223,28 @@ def main():
     checksum = sum(int(n) for n in numbers_in_password)
 
     if not (MIN_CHECKSUM <= checksum <= MAX_CHECKSUM):
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # --- Проверка кодируемости пароля ---
     encoded_password = encode_text(password)
     if not encoded_password:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # --- Поиск файла ключа в репозитории ---
     headers = {
-        "Authorization": f"token {keys_token}",
+        "Authorization": f"token {KEYS_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
     }
-    api_base = f"https://api.github.com/repos/{repo}/contents"
+    api_base = f"https://api.github.com/repos/{KEYS_REPO}/contents"
 
     try:
         r = requests.get(f"{api_base}/", headers=headers, timeout=15)
         r.raise_for_status()
         files = r.json()
     except Exception:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # Ищем файл по номеру (NUMBER_MAP)
@@ -261,12 +261,12 @@ def main():
             break
 
     if not file_info:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # Заморожен?
     if file_info["name"].startswith("0."):
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # --- Скачивание и SHA1 ---
@@ -275,21 +275,20 @@ def main():
         content = r.content
         blob = f"blob {len(content)}\0".encode() + content
         if hashlib.sha1(blob).hexdigest() != file_info.get("sha", ""):
-            fail(device_uuid, results_token)
+            fail(device_uuid, RESULTS_TOKEN)
             return
     except Exception:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # --- Парсинг содержимого ---
-    # Формат: encoded_password + SEPARATOR + encoded_date + [SEPARATOR + encoded_uuid] + tail_char
     content_str = content.decode("utf-8").strip()
     content_str = content_str[:-1]  # убираем tail_char
 
     parts = content_str.split(SEPARATOR)
 
     if len(parts) < 2:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     stored_encoded_password = parts[0]
@@ -298,7 +297,7 @@ def main():
 
     # --- Проверка пароля ---
     if stored_encoded_password != encoded_password:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # --- Checksum из имени файла ---
@@ -306,7 +305,7 @@ def main():
     if len(filename_parts) >= 3:
         stored_checksum = decode_number(filename_parts[2])
         if stored_checksum is not None and stored_checksum != checksum:
-            fail(device_uuid, results_token)
+            fail(device_uuid, RESULTS_TOKEN)
             return
 
     # --- Дата истечения ---
@@ -315,12 +314,12 @@ def main():
     try:
         expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d")
     except ValueError:
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     now = datetime.utcnow()
     if now.date() > expiry_date.date():
-        fail(device_uuid, results_token)
+        fail(device_uuid, RESULTS_TOKEN)
         return
 
     # --- Привязка устройства ---
@@ -328,7 +327,7 @@ def main():
 
     if stored_uuid:
         if stored_uuid != device_uuid:
-            fail(device_uuid, results_token)
+            fail(device_uuid, RESULTS_TOKEN)
             return
     else:
         encoded_uuid = encode_text(device_uuid)
@@ -347,12 +346,12 @@ def main():
                     },
                 ).raise_for_status()
             except Exception:
-                fail(device_uuid, results_token)
+                fail(device_uuid, RESULTS_TOKEN)
                 return
 
     # --- Успех ---
     days_left = (expiry_date.date() - now.date()).days
-    write_result(device_uuid, 1, days_left, results_token)
+    write_result(device_uuid, 1, days_left, RESULTS_TOKEN)
 
 
 if __name__ == "__main__":
